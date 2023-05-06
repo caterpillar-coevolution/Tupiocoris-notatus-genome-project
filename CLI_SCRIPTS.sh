@@ -66,3 +66,8 @@ singularity exec /Funannotate/funannotate.sif funannotate predict -i Tnot_hifias
 nohup /my_interproscan/interproscan-5.57-90.0/interproscan.sh -i 		Tnot_hifiasm_2Xpurged.proteins.fa &
 singularity exec /funannotate.sif funannotate annotate -i ./Tnot_funannotate_v2/ --cpus 32 --iprscan Tnot_hifiasm_2Xpurged_updated.proteins.fa.xml
 
+# step 7: BUSCO analysis of asembly and annotation
+/busco_5.1.3.sif busco -i ./Tnot_hifiasm_2Xpurged.proteins.fa -l hemiptera_odb10 -o mirid_transcriptome_busco_analysis -m prot -f
+/busco_5.1.3.sif busco -i ./mirid_hifi_assembly.fa -l hemiptera_odb10 -o mirid_purged_once_busco_analysis -m genome -f
+singularity exec /busco_5.1.3.sif python3 /generate_plot.py --working_directory /path/to/wd/
+
