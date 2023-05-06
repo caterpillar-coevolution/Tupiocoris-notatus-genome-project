@@ -71,3 +71,38 @@ singularity exec /funannotate.sif funannotate annotate -i ./Tnot_funannotate_v2/
 /busco_5.1.3.sif busco -i ./mirid_hifi_assembly.fa -l hemiptera_odb10 -o mirid_purged_once_busco_analysis -m genome -f
 singularity exec /busco_5.1.3.sif python3 /generate_plot.py --working_directory /path/to/wd/
 
+#step 8: alignment with STAR for diff expression
+module load star
+module load cufflinks
+gffread Tnot_hifiasm_2Xpurged.gff3 -T -o Tnot_hifiasm_2Xpurged.gtf
+STAR --runThreadN 15 \
+--runMode genomeGenerate \
+--genomeDir Tnot/ \
+--genomeFastaFiles Tnot_hifiasm_2Xpurged.fa.masked  \
+--sjdbGTFfile Tnot_hifiasm_2Xpurged.gtf \
+--genomeSAindexNbases 13 \
+--sjdbOverhang 74 
+module load bcftools
+module load samtools
+module load perl
+module load sratoolkit
+#Run trimmomatic
+java -jar /xdisk/judieb/jaykgold/Trimmomatic-0.39/trimmomatic-0.39.jar PE -phred33 \
+fasta/SRR4289599_1.fastq.gz fasta/SRR4289599_2.fastq.gz \
+fasta/SRR4289599_1_trimmed.fa fasta/SRR4289599_1_unpair_trimmed.fa \
+fasta/SRR4289599_2_trimmed.fa fasta/SRR4289599_2_unpair_trimmed.fa \
+ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+STAR --genomeDir Tnot/ \
+--runThreadN 15 \
+--readFilesIn fasta/SRR4289599_1_trimmed.fa fasta/SRR4289599_2_trimmed.fa \
+--outFileNamePrefix results/SRR4289599 \
+--outSAMtype BAM SortedByCoordinate \
+--quantMode GeneCounts \
+--limitSjdbInsertNsj=3000000 \
+--limitOutSJcollapsed=3000000
+#index the .bam file
+samtools index results/SRR4289599Aligned.sortedByCoord.out.bam
+
+
+
+
