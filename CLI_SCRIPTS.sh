@@ -53,7 +53,16 @@ source /blob_tools/blobtools_env/bin/activate
  -x bestsumorder \
  -o ./
 
-# step 5 repeatmasking
+# step 4 repeatmasking
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif BuildDatabase -name Tnot_twice_purged_wLTRs.DB -engine rmblast mirid_hifi_assembly.purged.purged.fa
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif RepeatModeler -pa 32 -database Tnot_twice_purged_wLTRs.DB -LTRStruct
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif RepeatMasker -lib Tnot_twice_purged_wLTRs.DB-families.fa -xsmall -pa 32 -gff -e ncbi mirid_hifi_assembly.purged.purged.fa
+
+$ step 5: structural annotation
+singularity exec /Funannotate/funannotate.sif funannotate train -i Tnot_hifiasm_2Xpurged.fa.masked -o Tnot_funannotate_v2 -l Tn1_1.fq.gz Tn2_1.fq.gz Tnot3_1.fq.gz -r Tn1_2.fq.gz Tn2_2.fq.gz Tnot3_2.fq.gz --cpus 32
+singularity exec /Funannotate/funannotate.sif funannotate predict -i Tnot_hifiasm_2Xpurged.fa.masked -o Tnot_funannotate_v2 -s "Tnot_hifiasm_2Xpurged" --cpus 32 --max_intronlen 100000 --organism other --busco_db insecta -d /Funannotate/funannotate_databases --repeats2evm --protein_evidence Apolygus_lucorum.anno.pep.fa
+
+#step 6: functional annotation
+nohup /my_interproscan/interproscan-5.57-90.0/interproscan.sh -i 		Tnot_hifiasm_2Xpurged.proteins.fa &
+singularity exec /funannotate.sif funannotate annotate -i ./Tnot_funannotate_v2/ --cpus 32 --iprscan Tnot_hifiasm_2Xpurged_updated.proteins.fa.xml
+
