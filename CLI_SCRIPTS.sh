@@ -38,6 +38,7 @@ source /blob_tools/blobtools_env/bin/activate
  --db /blob_tools/blobtools/data/nodesDB.txt \
  -x bestsumorder
  
+
  
 /blob_tools/blobtools/blobtools view \
  -i ./my_first_blobplot.blobDB.json \
@@ -52,19 +53,49 @@ source /blob_tools/blobtools_env/bin/activate
  -i ./my_first_blobplot.blobDB.json \
  -x bestsumorder \
  -o ./
+#step 4: inspector analysis and correction
 
-# step 4 repeatmasking
+python3 inspector-correct.py -i Tnot_inspector_run2_out/ --datatype pacbio-hifi -o Tnot_inspector_run2_out/ 
+
+# step 5 repeatmasking
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif BuildDatabase -name Tnot_twice_purged_wLTRs.DB -engine rmblast mirid_hifi_assembly.purged.purged.fa
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif RepeatModeler -pa 32 -database Tnot_twice_purged_wLTRs.DB -LTRStruct
 singularity exec -B ~/trf409.linux64:/opt/trf:ro tetools_1_1.sif RepeatMasker -lib Tnot_twice_purged_wLTRs.DB-families.fa -xsmall -pa 32 -gff -e ncbi mirid_hifi_assembly.purged.purged.fa
 
-$ step 5: structural annotation
-singularity exec /Funannotate/funannotate.sif funannotate train -i Tnot_hifiasm_2Xpurged.fa.masked -o Tnot_funannotate_v2 -l Tn1_1.fq.gz Tn2_1.fq.gz Tnot3_1.fq.gz -r Tn1_2.fq.gz Tn2_2.fq.gz Tnot3_2.fq.gz --cpus 32
-singularity exec /Funannotate/funannotate.sif funannotate predict -i Tnot_hifiasm_2Xpurged.fa.masked -o Tnot_funannotate_v2 -s "Tnot_hifiasm_2Xpurged" --cpus 32 --max_intronlen 100000 --organism other --busco_db insecta -d /Funannotate/funannotate_databases --repeats2evm --protein_evidence Apolygus_lucorum.anno.pep.fa
+# step 6: structural annotation
+singularity run --nv helixer-docker_helixer_v0.3.1_cuda_11.2.0-cudnn8.sif Helixer.py --fasta-path Tnot_hifiasm_contig_corrected.fa \
+--lineage invertebrate --gff-output-path Tnot_corrected_contigs.gff3 --subsequence-length 213840 --overlap-offset 106920 --overlap-core-length 160380
+gff3_to_fasta -g Tnot_corrected_contigs.gff3 -f Tnot_hifiasm_contig_corrected.fa -st all -d simple -o Tnot_corrected_contigs
 
-#step 6: functional annotation
-nohup /my_interproscan/interproscan-5.57-90.0/interproscan.sh -i 		Tnot_hifiasm_2Xpurged.proteins.fa &
-singularity exec /funannotate.sif funannotate annotate -i ./Tnot_funannotate_v2/ --cpus 32 --iprscan Tnot_hifiasm_2Xpurged_updated.proteins.fa.xml
+#step 7: functional annotation
+# Interproscan
+singularity run \
+-B Tnot_filtered_analysis/CORRECTED_ASSEMBLY:/data \
+-B interproscan-5.45-80.0/data:/opt/interproscan/data \
+interproscan_5.45-80.0_1.sif \
+-i Tnot_corrected_contigs_pep.fa \
+-d outdir_Tnot_corrected_InterPro \
+-f tsv,json,xml,html,gff3,svg \
+-g \
+-p \
+-c \
+-n \
+-D Tnotatus \
+-l
+
+#blastp
+module load blast/2.13.0 
+blastp -db databases/NCBI_nr/nr -query Tnot_corrected_contigs_pep.fa -outfmt 6 -out Tnot_blastp_nr_for_annotation.out -num_threads 32
+
+# AGAT update gff
+singularity run \
+    agat_1.1.0--pl5321hdfd78af_1.sif \
+    agat_sp_manage_functional_annotation.pl \
+    -f Tnot_corrected_contigs.gff3 \
+    -b ./Tnot_blastp_for_annotation.out \
+    --db databases/uniprot_sprot.fasta \
+    -i CORRECTED_ASSEMBLY/outdir_Tnot_corrected_InterPro/Tnot_corrected_contigs_pep.tsv \
+    --output Tnot_helixer_w_interpro_blastp
 
 # step 7: BUSCO analysis of asembly and annotation
 /busco_5.1.3.sif busco -i ./Tnot_hifiasm_2Xpurged.proteins.fa -l hemiptera_odb10 -o mirid_transcriptome_busco_analysis -m prot -f
