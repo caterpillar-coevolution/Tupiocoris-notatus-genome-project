@@ -1,9 +1,16 @@
 #JKGs DESeq2 analysis of Tnot gene expression
+BiocManager::install("DESeq2")
+BiocManager::install('EnhancedVolcano')
+BiocManager::install("DEGreport")
+BiocManager::install("ComplexHeatmap")
+BiocManager::install("pheatmap", force = TRUE)
+install.packages("tidyverse")
+
 
 library("pheatmap")
 library("tidyverse")
 library("DEGreport")
-library( "DESeq2" )
+library(DESeq2)
 library( "EnhancedVolcano" )
 library(dplyr)
 library(tibble)
@@ -12,7 +19,7 @@ library(ggplot2)
 #######################################################################
 # load the datasets for the first analysis (datura vs. tobacco)
 metaData <- read.csv("Gene_Metadata.csv")
-geneData <- read.csv("DEQ_dataset_022223.csv")
+geneData <- read.csv("Tnot_GeneData_07182023.csv")
 
 #set significance cutoff
 padj.cutoff <- 0.05
@@ -41,9 +48,9 @@ sig_res <- res %>%
 
 # print results as csvs
 write.csv(as.data.frame(res),
-          file="Tnot_datura_vs_tobacco_deseq_output.csv")
+          file="Tnot_datura_vs_tobacco_deseq_noAOC_output.csv")
 write.csv(as.data.frame(sig_res),
-          file="Tnot_datura_vs_tobacco_deseq_output_sig_only.csv")
+          file="Tnot_datura_vs_tobacco_deseq_output_noAOC_sig_only.csv")
 
 # make a PCA plot of the results by sample (colored according to host plant)
 vsdata <- vst(dds, blind=FALSE)
@@ -55,10 +62,10 @@ EnhancedVolcano(res,
                 lab = NA,
                 labSize = 2.0,
                 x = 'log2FoldChange',
-                y = 'pvalue',
+                y = 'padj',
                 title = 'Datura wrightii fed vs. Nicotiana attenuata-fed',
                 pointSize = 1.5,
-                pCutoff = 0.01452,
+                pCutoff = 0.05,
                 FCcutoff = 2,
                 col=c('black', 'black', 'red3', 'red3'),
                 colAlpha = 1.)
@@ -69,7 +76,7 @@ EnhancedVolcano(res,
 
 # load the datasets for the second analysis (Na-EV vs. Na-irAOC)
 metaDataNAonly <- read.csv("Gene_Metadata_NAonly.csv")
-geneDataNAonly <- read.csv("DEQ_dataset_022323_NAonly.csv")
+geneDataNAonly <- read.csv("Tnot_GeneData_07182023_NAonly.csv")
 
 # construct dataset from genecount table
 ddsNAonly <- DESeqDataSetFromMatrix(countData=geneDataNAonly, 
@@ -109,13 +116,15 @@ EnhancedVolcano(resNAonly,
                 lab = NA,
                 labSize = 2.0,
                 x = 'log2FoldChange',
-                y = 'pvalue',
+                y = 'padj',
                 title = 'Na EV vs. NA irAOC',
                 pointSize = 1.5,
-                pCutoff = 0.00014,
+                pCutoff = 0.05,
                 FCcutoff = 1,
                 col=c('black', 'black', 'red3', 'red3'),
                 colAlpha = 1.)
 
+#################################################################
+# enrichment analysis with clusterprofiler
 
 
